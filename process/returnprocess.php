@@ -1,0 +1,248 @@
+<?php
+session_start();
+require_once('../connection/db.php');
+
+$userID = $_SESSION['userid'];
+$updatedatetime = date('Y-m-d H:i:s');
+$today = date('Y-m-d');
+
+$tableData = $_POST['tableData'];
+$returntype = $_POST['returntype'];
+$customerinvoice = $_POST['customerinvoice'];
+$total = $_POST['total'];
+$invoicestatus = $_POST['invoicestatus'];
+$repId = $_POST['repId'];
+$reason_type = $_POST['reasontype'];
+$vatamount = isset($_POST['vatamount']) ? $_POST['vatamount'] : 0;
+
+$backtostock = isset($_POST['backtostock']) ? (int)$_POST['backtostock'] : 1;
+
+if ($returntype == 1) {
+    // Customer return 
+    $customer = $_POST['customer'];
+    $remarks = $_POST['remarks'];
+
+    $query = "INSERT INTO `tbl_return`(
+    `returntype`, `has_invoice`, `returndate`, `status`, `updatedatetime`, 
+    `tbl_user_idtbl_user`, `acceptance_status`, `total`, `vatamount`, `reason_type`, `damaged_reason`, 
+    `credit_note`, `credit_note_issue`, `tbl_invoice_idtbl_invoice`, 
+    `tbl_customer_idtbl_customer`, `tbl_employee_idtbl_employee`, `back_to_stock`
+) VALUES (
+    '$returntype', '$invoicestatus', '$today', '1', '$updatedatetime',
+    '$userID', '0', '$total', '$vatamount','$reason_type', '$remarks', '0', '0', '$customerinvoice', 
+    '$customer', '$repId', '$backtostock'
+)";
+
+    if ($conn->query($query) == true) {
+        $last_id = mysqli_insert_id($conn);
+
+        foreach ($tableData as $rowtabledata) {
+            $productID = $rowtabledata['col_1'];
+            $qty = $rowtabledata['col_4'];
+            $discount = $rowtabledata['col_5'];
+            $subtotal = $rowtabledata['col_6'];
+            $unitprice = $rowtabledata['col_11'];
+            // Per-line VAT isn't tracked individually (VAT is computed once at the tbl_return header level).
+            $linevat = 0;
+
+            $insertreturndetails = "INSERT INTO `tbl_return_details`(
+                `unitprice`, `qty`, `actualqty`, `discount`, `total`, `vatamount`,
+                `tbl_product_idtbl_product`, `updatedatetime`, `tbl_user_idtbl_user`, 
+                `tbl_return_idtbl_return`
+            ) VALUES (
+                '$unitprice', '$qty', '0', '$discount', '$subtotal', '$linevat', '$productID',
+                '$updatedatetime', '$userID', '$last_id'
+            )";
+            $conn->query($insertreturndetails);
+        }
+
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-check-circle';
+        $actionObj->title = 'Success';
+        $actionObj->message = 'Return Added Successfully';
+        $actionObj->url = '';
+        $actionObj->target = '_blank';
+        $actionObj->type = 'success';
+        echo json_encode($actionObj);
+    } else {
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-exclamation-circle';
+        $actionObj->title = 'Error';
+        $actionObj->message = 'Failed to insert return: ' . $conn->error;
+        $actionObj->type = 'error';
+        echo json_encode($actionObj);
+    }
+} else if ($returntype == 3) {
+    // Damage return
+    $customer = $_POST['customer'];
+    $remarks = $_POST['remarks'];
+
+    $query = "INSERT INTO `tbl_return`(
+        `returntype`, `has_invoice`, `returndate`, `status`, `updatedatetime`, 
+        `tbl_user_idtbl_user`, `acceptance_status`, `total`, `vatamount`, `damaged_reason`, 
+        `credit_note`, `credit_note_issue`, `tbl_invoice_idtbl_invoice`, 
+        `tbl_customer_idtbl_customer`, `tbl_employee_idtbl_employee`
+    ) VALUES (
+        '$returntype', '$invoicestatus', '$today', '1', '$updatedatetime',
+        '$userID', '0', '$total', '$vatamount', '$remarks', '0', '0', '$customerinvoice', 
+        '$customer', '$repId'
+    )";
+
+    if ($conn->query($query) == true) {
+        $last_id = mysqli_insert_id($conn);
+
+        foreach ($tableData as $rowtabledata) {
+            $productID = $rowtabledata['col_1'];
+            $qty = $rowtabledata['col_4'];
+            $discount = $rowtabledata['col_5'];
+            $subtotal = $rowtabledata['col_6'];
+            $unitprice = $rowtabledata['col_11'];
+            // Per-line VAT isn't tracked individually (VAT is computed once at the tbl_return header level).
+            $linevat = 0;
+
+            $insertreturndetails = "INSERT INTO `tbl_return_details`(
+                `unitprice`, `qty`, `actualqty`, `discount`, `total`, `vatamount`,
+                `tbl_product_idtbl_product`, `updatedatetime`, `tbl_user_idtbl_user`, 
+                `tbl_return_idtbl_return`
+            ) VALUES (
+                '$unitprice', '$qty', '0', '$discount', '$subtotal', '$linevat', '$productID',
+                '$updatedatetime', '$userID', '$last_id'
+            )";
+            $conn->query($insertreturndetails);
+        }
+
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-check-circle';
+        $actionObj->title = 'Success';
+        $actionObj->message = 'Return Added Successfully';
+        $actionObj->url = '';
+        $actionObj->target = '_blank';
+        $actionObj->type = 'success';
+        echo json_encode($actionObj);
+    } else {
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-exclamation-circle';
+        $actionObj->title = 'Error';
+        $actionObj->message = 'Failed to insert return: ' . $conn->error;
+        $actionObj->type = 'error';
+        echo json_encode($actionObj);
+    }
+}  else if ($returntype == 2) {
+    // Supplier return
+    $supplier = $_POST['supplier'];
+    $remarks = isset($_POST['remarks']) ? $_POST['remarks'] : '';
+
+    $query = "INSERT INTO `tbl_return` (
+        `returntype`, `has_invoice`, `returndate`, `status`, `updatedatetime`, 
+        `tbl_user_idtbl_user`, `acceptance_status`, `total`, `damaged_reason`, 
+        `credit_note`, `credit_note_issue`, `tbl_customer_idtbl_customer`,
+        `tbl_employee_idtbl_employee`, `tbl_invoice_idtbl_invoice`, `tbl_supplier_idtbl_supplier`,
+        `back_to_stock`
+    ) VALUES (
+        '$returntype', '$invoicestatus', '$today', '1', '$updatedatetime',
+        '$userID', '0', '$total', '$remarks', '0', '0', '0', '0', '0', '$supplier',
+        '$backtostock'
+    )";
+
+    if ($conn->query($query) === true) {
+        $last_id = mysqli_insert_id($conn);
+
+        foreach ($tableData as $rowtabledata) {
+            $productID = $rowtabledata['col_1'];
+            $qty = $rowtabledata['col_4'];
+            $discount = $rowtabledata['col_5'];
+            $subtotal = $rowtabledata['col_6'];
+            $unitprice = $rowtabledata['col_11'];
+            $stockId = $rowtabledata['col_12'];
+            $batchQty = $rowtabledata['col_13'];
+
+            // Insert return details (always happens regardless of backtostock)
+            $insertreturndetails = "INSERT INTO `tbl_return_details` (
+                `unitprice`, `qty`, `actualqty`, `discount`, `total`, 
+                `tbl_product_idtbl_product`, `updatedatetime`, `tbl_user_idtbl_user`, 
+                `tbl_return_idtbl_return`
+            ) VALUES (
+                '$unitprice', '$qty', '0', '$discount', '$subtotal', '$productID',
+                '$updatedatetime', '$userID', '$last_id'
+            )";
+
+            if (!$conn->query($insertreturndetails)) {
+                $actionObj = new stdClass();
+                $actionObj->icon = 'fas fa-exclamation-circle';
+                $actionObj->title = 'Error';
+                $actionObj->message = 'Failed to insert return details: ' . $conn->error;
+                $actionObj->type = 'error';
+                echo json_encode($actionObj);
+                exit;
+            }
+
+            // Only touch stock if the user chose "Back to stock: Yes"
+            if ($backtostock == 1) {
+                if ($stockId && $stockId != '0') {
+                    $updateStock = "UPDATE `tbl_stock` 
+                                    SET `qty` = `qty` - '$qty',
+                                        `updatedatetime` = '$updatedatetime',
+                                        `tbl_user_idtbl_user` = '$userID'
+                                    WHERE `idtbl_stock` = '$stockId'";
+
+                    if (!$conn->query($updateStock)) {
+                        $actionObj = new stdClass();
+                        $actionObj->icon = 'fas fa-exclamation-circle';
+                        $actionObj->title = 'Error';
+                        $actionObj->message = 'Failed to update stock: ' . $conn->error;
+                        $actionObj->type = 'error';
+                        echo json_encode($actionObj);
+                        exit;
+                    }
+
+                    // Check if stock goes negative for this specific batch
+                    $checkStock = "SELECT `qty`, `batchqty` FROM `tbl_stock` 
+                                   WHERE `idtbl_stock` = '$stockId'";
+                    $result = $conn->query($checkStock);
+                    if ($result && $row = $result->fetch_assoc()) {
+                        if ($row['qty'] < 0) {
+                            // Rollback the stock update
+                            $rollbackStock = "UPDATE `tbl_stock` 
+                                              SET `qty` = `qty` + '$qty'
+                                              WHERE `idtbl_stock` = '$stockId'";
+                            $conn->query($rollbackStock);
+
+                            $actionObj = new stdClass();
+                            $actionObj->icon = 'fas fa-exclamation-circle';
+                            $actionObj->title = 'Error';
+                            $actionObj->message = 'Insufficient stock in batch: ' . $row['batchqty'];
+                            $actionObj->type = 'error';
+                            echo json_encode($actionObj);
+                            exit;
+                        }
+                    }
+                } else {
+                    $actionObj = new stdClass();
+                    $actionObj->icon = 'fas fa-exclamation-circle';
+                    $actionObj->title = 'Error';
+                    $actionObj->message = 'Stock ID missing for product ID: ' . $productID;
+                    $actionObj->type = 'error';
+                    echo json_encode($actionObj);
+                    exit;
+                }
+            }
+            // else: backtostock == 0 -> skip all stock updates, return detail row is still recorded
+        }
+
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-check-circle';
+        $actionObj->title = 'Success';
+        $actionObj->message = 'Supplier Return Added Successfully';
+        $actionObj->url = '';
+        $actionObj->target = '_blank';
+        $actionObj->type = 'success';
+        echo json_encode($actionObj);
+    } else {
+        $actionObj = new stdClass();
+        $actionObj->icon = 'fas fa-exclamation-circle';
+        $actionObj->title = 'Error';
+        $actionObj->message = 'Failed to insert supplier return: ' . $conn->error;
+        $actionObj->type = 'error';
+        echo json_encode($actionObj);
+    }
+}
